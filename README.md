@@ -31,3 +31,6 @@ $ ./lincon deploy /etc/otherprogram/settings.conf
 The command will create a hardlink at `/etc/otherprogram/settings.conf`, which points to the file in your repository (in this case `/home/user/configs/etc/otherprogram/settings.conf`.
 
 In case there is already a config file with the same name, the file will get backed up to `/etc/otherprogram/settings.conf.bak`.
+
+Note: Since checking out different git branches deletes and creates physical files in your file system, hardlinks might break. This means that you might have to re-deploy your config files after 
+doing navigating your git history and switching branches.

@@ -1,0 +1,106 @@
+#!/bin/bash
+
+# Check if two hardlinks point to same file
+aresame()
+{
+    [ "$(ls -i $1 | awk '{print $1;}')" == "$(ls -i $2 | awk '{print $1;}')" ]
+}
+
+hardlink()
+{
+    ln $(readlink -f $1) $2;
+}
+
+# Move $1 to $2
+pull()
+{
+    mkdir -p $(dirname $2);
+    mv $1 $2;
+}
+
+# Pull $1 to $2 and link $2 into $1
+pulllink()
+{
+    pull $1 $2
+    hardlink $2 $1
+}
+
+# Ask a question and return the answer
+y()
+{
+    local yn;
+    read -p "$1" yn;
+    case "$yn" in
+        y|Y ) return 0;;
+        n|N ) return 1;;
+        * ) return $(y "$1");;
+    esac
+}
+
+# Start of the script
+
+if (( $# != 2 )); then
+    echo "Usage: lincon <add|deploy> <path/to/file>"
+    exit 0
+fi
+
+OPERATION=$1
+ORIG=$2
+BAK=$ORIG.orig
+TARGET=$(dirname "$0")$ORIG
+
+case $OPERATION in
+
+    # Add a file to versioning
+    add)
+        # Error if original does not exist
+        if [ ! -e $ORIG ]; then
+            echo "Error: File $ORIG does not exist.";
+            exit 1;
+        fi
+
+        # There is already a file in the repo
+        if [ -e $TARGET ]; then
+            # File is already linked
+            if aresame $ORIG $TARGET; then
+                echo "File $ORIG is already versioned.";
+                exit;
+            fi
+            # Repo contains different copy
+            echo "Versioned copy of $ORIG already exists.";
+            if ! y "Overwrite it (y/n)?"; then
+                exit;
+            fi
+        fi
+        pulllink $ORIG $TARGET
+        echo "File $ORIG versioned."
+        ;;
+
+    # Link a file from repo
+    deploy)
+        # Check if versioned copy exists
+        if [ ! -e $TARGET ]; then
+            echo "Error: No versioned copy of $ORIG found.";
+            exit 1;
+        fi
+
+        # Backup any original files
+        if [ -e $ORIG ]; then
+            if aresame $ORIG $TARGET; then
+                echo "File $ORIG is already versioned.";
+                exit;
+            else
+                echo "Backup original file to $BAK.";
+                mv $ORIG $BAK
+            fi
+        fi
+        # Link it, baby!
+        hardlink $TARGET $ORIG
+        echo "File $ORIG deployed."
+        ;;
+    *)
+        echo "Usage: repoconf <add|deploy> <path/to/file>";
+        exit 0;
+        ;;
+esac
+
